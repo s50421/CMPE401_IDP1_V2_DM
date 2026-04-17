@@ -1,31 +1,101 @@
-from ultralytics import YOLO
+"""
+My script to extract all the metrics from the trained models.
+Instead of manually looking through console logs, this scans the 'results/' folder,
+evaluates every model it finds, and dumps everything into a nice CSV file for my report.
+"""
+
 import os
+import pandas as pd
+from ultralytics import YOLO
 import config
 
-def evaluate_model(model_path, title):
-    print(f"\n=== Evaluating {title} ===")
-    if not os.path.exists(model_path):
-        print(f"[ERROR] Model weights not found at {model_path}.")
+def format_row(cols):
+    # Quick helper to make markdown table formatting easier
+    return "| " + " | ".join(cols) + " |"
+
+def evaluate_all():
+    print("\n=== CMPE 401: Automated Model Evaluation ===")
+    
+    # Bail out if the results directory doesn't exist yet
+    if not os.path.exists(config.RESULTS_DIR):
+        print(f"[ERROR] Can't find the results directory at {config.RESULTS_DIR}. Did you run training yet?")
+        return
+    
+    # Grab all the subdirectories inside results/ (each one is a training run)
+    runs = [d for d in os.listdir(config.RESULTS_DIR) if os.path.isdir(os.path.join(config.RESULTS_DIR, d))]
+    
+    if not runs:
+        print("[WARNING] Results directory is empty.")
+        return
+        
+    print("\nFound the following runs to evaluate:", runs)
+    
+    # Storing everything in a list of dicts so I can easily convert it to a pandas DataFrame later
+    results_data = []
+    
+    for run in runs:
+        # The best weights are always saved here by Ultralytics
+        weights_path = os.path.join(config.RESULTS_DIR, run, "weights", "best.pt")
+        
+        if not os.path.exists(weights_path):
+            print(f"[WARNING] No best.pt found for {run}. Skipping...")
+            continue
+            
+        print(f"\n--- Evaluating {run} ---")
+        try:
+            # Load up the model weights
+            model = YOLO(weights_path)
+            
+            # Run evaluation on the validation set. 
+            metrics = model.val(data=config.DATASET, device=config.DEVICE)
+            
+            # Extract the core metrics I need for the rubric
+            map50_95 = metrics.box.map
+            map50 = metrics.box.map50
+            
+            # Precision and Recall (taking the mean across all classes)
+            precision = metrics.box.mp
+            recall = metrics.box.mr
+            
+            # Count the total number of parameters in the model (useful for size comparisons)
+            params = sum(p.numel() for p in model.model.parameters())
+            
+            # Append it to my dataset
+            results_data.append({
+                "Run Name": run,
+                "Model Size (Params)": params,
+                "mAP50": f"{map50:.3f}",
+                "mAP50-95": f"{map50_95:.3f}",
+                "Precision": f"{precision:.3f}",
+                "Recall": f"{recall:.3f}"
+            })
+            
+        except Exception as e:
+            print(f"[ERROR] Something went wrong evaluating {run}: {e}")
+            
+    if not results_data:
+        print("[ERROR] Couldn't successfully evaluate any models.")
         return
 
-    try:
-        model = YOLO(model_path)
-        # Evaluate on the validation set
-        metrics = model.val(data="VisDrone.yaml")
-        print(f"\n[INFO] {title} Evaluation Results:")
-        print(f"  mAP50-95: {metrics.box.map:.4f}")
-        print(f"  mAP50:    {metrics.box.map50:.4f}")
-    except Exception as e:
-        print(f"[ERROR] Could not evaluate model. Details: {e}")
+    # Shove it all into a DataFrame
+    df = pd.DataFrame(results_data)
+    
+    # 1. Print out a Markdown table so I can easily copy-paste it into my README
+    print("\n\n=== Final Comparison Table (Markdown) ===\n")
+    headers = list(df.columns)
+    print(format_row(headers))
+    print(format_row(["---"] * len(headers)))
+    for _, row in df.iterrows():
+        print(format_row(row.astype(str).tolist()))
+    print("\n(Copy and paste this table into the README!)\n")
 
-def main():
-    """
-    Evaluates the trained models to gather quantitative metrics (mAP, Precision, Recall).
-    """
-    print("=== CMPE 401: Model Evaluation ===")
-    evaluate_model(os.path.join(config.RESULTS_DIR, "baseline_run/weights/best.pt"), "Baseline Model")
-    evaluate_model(os.path.join(config.RESULTS_DIR, "exp_high_lr/weights/best.pt"), "High LR Model")
-    evaluate_model(os.path.join(config.RESULTS_DIR, "exp_low_lr/weights/best.pt"), "Low LR Model")
+    # 2. Save it to a CSV file in the /xsheets folder for safekeeping and Excel graphing
+    xsheets_dir = os.path.join(config.PROJECT_ROOT, "xsheets")
+    os.makedirs(xsheets_dir, exist_ok=True)
+    
+    csv_path = os.path.join(xsheets_dir, "compiled_results.csv")
+    df.to_csv(csv_path, index=False)
+    print(f"\n[SUCCESS] Saved the compiled CSV to: {csv_path}")
 
 if __name__ == "__main__":
-    main()
+    evaluate_all()

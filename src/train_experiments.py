@@ -1,44 +1,68 @@
+"""
+My script for running iterative model improvements (Part IV).
+I used this early on to play with heavy augmentations and regularizations 
+before deciding that epoch scaling was the better path for VisDrone.
+"""
+
 import os
 from ultralytics import YOLO
 import config
 
-def train_with_params(name, lr0, batch, epochs=5):
+def train_experiment(name, description, **kwargs):
     """
-    Helper function to train a model with specific hyperparameters.
+    A helper to let me dynamically pass in whatever hyperparams I want to test out.
+    Keeps the code clean and lets me run multiple experiments in a row.
     """
-    print(f"\n--- Running Experiment: {name} ---")
-    print(f"Hyperparameters -> lr0: {lr0}, batch: {batch}")
+    print(f"\n{'='*50}")
+    print(f"--- Running Experiment: {name} ---")
+    print(f"Description: {description}")
+    print(f"Custom Parameters: {kwargs}")
+    print(f"{'='*50}\n")
     
     model = YOLO(config.MODEL_NAME)
-    model.train(
-        data=config.DATASET,
-        epochs=epochs,
-        imgsz=config.IMG_SIZE,
-        batch=batch,
-        workers=config.WORKERS,
-        lr0=lr0,
-        project=config.RESULTS_DIR,
-        name=name,
-        device=config.DEVICE
-    )
+    
+    # Setting up my base kwargs from the config file
+    train_args = {
+        "data": config.DATASET,
+        "epochs": config.EPOCHS,
+        "imgsz": config.IMG_SIZE,
+        "batch": config.BATCH_SIZE,
+        "workers": config.WORKERS,
+        "project": config.RESULTS_DIR,
+        "name": name,
+        "device": config.DEVICE,
+        "exist_ok": True
+    }
+    
+    # Jamming in the custom kwargs for this specific experiment
+    train_args.update(kwargs)
+    
+    # Train it!
+    model.train(**train_args)
 
 def main():
-    """
-    Runs controlled experiments demonstrating hyperparameter tuning 
-    for the CMPE 401 project. This shows an understanding of how
-    learning rates affect convergence and stability.
-    """
-    print("=== CMPE 401: YOLO Controlled Experiments ===")
+    print("=== CMPE 401: Iterative Model Improvement ===")
     
-    # Experiment 1: High Learning Rate
-    # Demonstrates what happens when the model learns too fast (potential instability/overshooting)
-    train_with_params(name="exp_high_lr", lr0=0.05, batch=16)
+    # --- Experiment 1: High Learning Rate ---
+    # Testing what happens when the gradients explode/overshoot
+    train_experiment(
+        name="exp_high_lr",
+        description="Testing high learning rate to observe overshooting and gradient explosion.",
+        lr0=0.05
+    )
     
-    # Experiment 2: Low Learning Rate
-    # Demonstrates slow but potentially more stable convergence (might need more epochs)
-    train_with_params(name="exp_low_lr", lr0=0.001, batch=16)
+    # --- Experiment 2: Overfitting Control ---
+    # Throwing the kitchen sink at it (mixup, mosaic, weight decay) to see if 
+    # heavy regularization helps on the dense drone images.
+    train_experiment(
+        name="exp_overfit_control",
+        description="Applying regularization (weight decay) and heavy augmentation (mixup) to control overfitting.",
+        weight_decay=0.001,
+        mixup=0.2,
+        mosaic=1.0
+    )
     
-    print("\n[SUCCESS] All experiments completed. Check the 'results/' folder for comparisons.")
+    print("\n[SUCCESS] Experiments completed.")
 
 if __name__ == "__main__":
     main()

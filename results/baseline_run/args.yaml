@@ -10,10 +10,10 @@ imgsz: 416
 save: true
 save_period: -1
 cache: false
-device: mps
-workers: 4
-project: /Users/davidmanhart/Documents/GitHub/CMPE401_IDP1_V2_DM/results
-name: baseline_run
+device: '0'
+workers: 8
+project: c:\Users\Anna\OneDrive\Documents\David\CMPE401_IDP1_V2_DM\results
+name: baseline_run2
 exist_ok: false
 pretrained: true
 optimizer: auto
@@ -107,4 +107,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: botsort.yaml
-save_dir: /Users/davidmanhart/Documents/GitHub/CMPE401_IDP1_V2_DM/results/baseline_run
+save_dir: C:\Users\Anna\OneDrive\Documents\David\CMPE401_IDP1_V2_DM\results\baseline_run2

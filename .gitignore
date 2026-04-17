@@ -34,9 +34,7 @@ env/
 
 # YOLO and Deep Learning
 runs/
-yolov8n.pt
-yolov11n.pt
-*.pt
+/*.pt
 *.onnx
 *.engine
 wandb/

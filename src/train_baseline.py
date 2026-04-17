@@ -1,32 +1,33 @@
+"""
+My script for running the basic YOLOv11 baseline.
+This gives me the initial metrics so I can diagnose if the model is overfitting
+or underfitting on the VisDrone dataset before I start tuning anything.
+"""
+
 import os
 from ultralytics import YOLO
 import config
 
-def train_baseline():
-    """
-    Trains a baseline YOLOv11 Nano model on the VisDrone dataset.
-    This serves as the control model for our CMPE 401 experiments.
-    """
-    print("=== Training YOLO Baseline ===")
-    print(f"Model: {config.MODEL_NAME}")
-    print(f"Dataset: {config.DATASET}")
+def main():
+    print("=== CMPE 401: YOLO Baseline Training ===")
     
-    # Load the baseline YOLO model
+    # Init the raw, pretrained YOLO model
     model = YOLO(config.MODEL_NAME)
     
-    results = model.train(
+    # Kick off the training run
+    model.train(
         data=config.DATASET,
         epochs=config.EPOCHS,
         imgsz=config.IMG_SIZE,
         batch=config.BATCH_SIZE,
         workers=config.WORKERS,
         project=config.RESULTS_DIR,
-        name="baseline_run",
-        device=config.DEVICE
+        name="baseline_run",  # Saving it here so I can find the loss curves later
+        device=config.DEVICE,
+        exist_ok=True
     )
     
-    print("\n[SUCCESS] Baseline training complete.")
-    print("Results are saved in the 'results/baseline_run' directory.")
+    print("\n[SUCCESS] Baseline training completed! Go check results/baseline_run/ for the logs.")
 
 if __name__ == "__main__":
-    train_baseline()
+    main()
